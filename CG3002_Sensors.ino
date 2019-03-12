@@ -1,3 +1,104 @@
+#include <Arduino.h>
+#include <SoftwareSerial.h>
+    
+int number = 1;
+int i;
+
+// Definition of packet structure
+
+typedef struct DataPacket{
+  int16_t sensorID0;
+  int16_t readings0[3];
+  int16_t sensorID1;
+  int16_t readings1[3];
+  int16_t sensorID2;
+  int16_t readings2[3];
+  int16_t sensorID3;
+  int16_t readings3[3];
+  int16_t sensorID4;
+  int16_t readings4[3];
+  int16_t powerID;
+  int16_t voltage;
+  int16_t current;
+  int16_t power;
+} DataPacket;
+
+// Serialize method, adapted from lecture notes
+unsigned int serialize(char *buf, void *p, size_t size)
+{
+  char checksum = 0;
+  buf[0]=size;
+  memcpy(buf+1, p, size);
+  for(int i=1; i<=(int)size; i++)
+  {
+     checksum ^= buf[i];
+  }
+  buf[size+1]=checksum;
+  return size+2;
+}
+
+unsigned int deserialize(void *p, char *buf)
+{
+  size_t size = buf[0];
+  char checksum = 0;
+
+  for (int i=1; i<=size; i++)
+  checksum ^= buf[i];
+
+  if (checksum == buf[size+1])
+  {
+    memcpy(p, buf+1, size);
+    return 1;
+  } 
+  else
+  {
+    Serial.println("checksum Wrong");
+    return 0;
+  }
+}  
+
+unsigned sendConfig(char * buffer, unsigned char deviceCode[],double readings[])
+{
+  DataPacket pkt;
+  pkt.sensorID0 = 0;
+  pkt.readings0[0] = readings[0] * 1000;
+  pkt.readings0[1] = readings[1] * 1000;
+  pkt.readings0[2] = readings[2] * 1000;
+  pkt.sensorID1 = 1;
+  pkt.readings1[0] = 1000;
+  pkt.readings1[1] = 2000;
+  pkt.readings1[2] = 3000;
+  pkt.sensorID2 = 2;
+  pkt.readings2[0] = 1234;
+  pkt.readings2[1] = 3214;
+  pkt.readings2[2] = 1211;
+  pkt.sensorID3 = 3;
+  pkt.readings3[0] = 3000;
+  pkt.readings3[1] = 1414;
+  pkt.readings3[2] = 2222;
+  // pkt.sensorID1 = 1;
+  pkt.powerID = 9;
+  pkt.voltage = 10;
+  pkt.current = 5;
+  pkt.power = 3;
+  unsigned len = serialize(buffer, &pkt, sizeof(pkt));
+  return len;
+}
+
+
+// Adapted from lecture notes
+void sendSerialData(char *buffer, int len)
+{
+  Serial.println(len);
+  for(int i=0; i<len; i++)
+  {
+  Serial2.write(buffer[i]);
+  delay(100);
+  }
+}
+
+
+
 // I2C device class (I2Cdev) demonstration Arduino sketch for MPU6050 class using DMP (MotionApps v2.0)
 // 6/21/2012 by Jeff Rowberg <jeff@rowberg.net>
 // Updates should (hopefully) always be available at https://github.com/jrowberg/i2cdevlib
@@ -275,6 +376,7 @@ void setup() {
 
     // configure LED for output
     pinMode(LED_PIN, OUTPUT);
+    Serial2.begin(9600);
 }
 
 
@@ -448,6 +550,17 @@ void loop() {
             Serial.print("\t");
             double z = (double) aaWorld.z / 8192.0;
             Serial.println(z, 5);
+            double readings[3] = {x, y, z};
+            char deviceCode[1] = {'w'};
+            char buffer[64];
+            unsigned len = sendConfig(buffer,deviceCode,readings);
+            sendSerialData(buffer,len);
+            DataPacket results; 
+            deserialize(&results, buffer);
+            Serial.print("Readings 0 is ");
+            Serial.println(results.readings0[0]);
+            Serial.print(" Readings 1 is ");
+            Serial.println(results.readings0[1]);
         #endif
     
         #ifdef OUTPUT_TEAPOT
