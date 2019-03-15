@@ -1,3 +1,4 @@
+/*
 #include <Arduino.h>
 #include <SoftwareSerial.h>
     
@@ -96,7 +97,7 @@ void sendSerialData(char *buffer, int len)
   delay(100);
   }
 }
-
+*/
 
 #include "I2Cdev.h"
 
@@ -119,6 +120,8 @@ MPU6050 mpu;
 #define SENSOR4_AD0 8
 
 int activeSensor = 0;
+
+double sensorReadings[15]; 
 
 // MPU control/status vars
 bool dmpReady = false;  // set true if DMP init was successful
@@ -212,7 +215,7 @@ void setup() {
 
         // enable Arduino interrupt detection
         Serial.println(F("Enabling interrupt detection ..."));
-        Timer1.initialize(500000);         // initialize timer1, and set a 0.5 second period
+        Timer1.initialize(100000);         // initialize timer1, and set a 0.1 second period
         Timer1.attachInterrupt(dmpDataReady);  // attaches dmpDataReady() as a timer overflow interrupt
         mpuIntStatus = mpu.getIntStatus();
 
@@ -315,8 +318,8 @@ void loop() {
         break;
     }
 
-    Serial.print("Active Sensor = ");
-    Serial.println(activeSensor);
+    //Serial.print("Active Sensor = ");
+    //Serial.println(activeSensor);
     
     mpuIntStatus = mpu.getIntStatus();
 
@@ -350,15 +353,20 @@ void loop() {
         mpu.dmpGetGravity(&gravity, &q);
         mpu.dmpGetLinearAccel(&aaReal, &aa, &gravity);
         mpu.dmpGetLinearAccelInWorld(&aaWorld, &aaReal, &q);
-        Serial.print("aworld\t");
+        //Serial.print("aworld\t");
         double x = (double) aaWorld.x / 8192.0;
-        Serial.print(x, 5);
-        Serial.print("\t");
+        //Serial.print(x, 5);
+        //Serial.print("\t");
         double y = (double) aaWorld.y / 8192.0;
-        Serial.print(y, 5);
-        Serial.print("\t");
+        //Serial.print(y, 5);
+        //Serial.print("\t");
         double z = (double) aaWorld.z / 8192.0;
-        Serial.println(z, 5);
+        //Serial.println(z, 5);
+
+        sensorReadings[activeSensor] = x;
+        sensorReadings[activeSensor + 1] = y;
+        sensorReadings[activeSensor + 2] = z;
+        /*
         double readings[3] = {x, y, z};
         char deviceCode[1] = {'w'};
         char buffer[64];
@@ -366,10 +374,19 @@ void loop() {
         sendSerialData(buffer,len);
         DataPacket results; 
         deserialize(&results, buffer);
+        
         Serial.print("Readings 0 is ");
         Serial.println(results.readings0[0]);
         Serial.print(" Readings 1 is ");
-        Serial.println(results.readings0[1]);
+        Serial.println(results.readings0[1]);*/
+    }
+
+    if(activeSensor == 4) {
+        for(int i=0; i<14; i++) {
+            Serial.print(sensorReadings[i], 5);
+            Serial.print("\t");
+        }
+        Serial.println(sensorReadings[14], 5);
     }
 
     activeSensor++;
